@@ -1,0 +1,271 @@
+<html><head><script>
+    function g(){
+      mf = Math.floor;
+      mr = Math.random;
+      // some consts
+      var CANVAS_WIDTH = 512;
+      var CANVAS_HEIGHT = 300;
+      var HORI_Y = 0;
+      var HORI_HEIGHT = 100;
+      var HORI_FAR_OFFSET = -50;
+      // Create the canvas
+      var canvas = document.createElement("canvas");
+      var ctx = canvas.getContext("2d");
+      canvas.width = CANVAS_WIDTH;
+      canvas.height = CANVAS_HEIGHT;
+      document.body.appendChild(canvas);
+
+      function rst(){
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+
+      // Background image
+      var bgReady = false;
+      /*var bgImage = new Image();
+      bgImage.onload = function () {
+      	bgReady = true;
+      };
+      bgImage.src = "images/background.png";
+      */
+
+      // Hero image
+      var heroReady = true;
+
+      // Monster image
+      var monsterReady = true;
+
+      // Game objects
+      var hero = {
+      	speed: 256, // movement in pixels per second
+        color: 'red'
+      };
+      var monster = { color: 'blue' };
+      var monstersCaught = 0;
+
+      // Handle keyboard controls
+      var keysDown = {};
+
+/*
+      addEventListener("keydown", function (e) {
+      	keysDown[e.keyCode] = true;
+      }, false);
+
+      addEventListener("keyup", function (e) {
+      	delete keysDown[e.keyCode];
+      }, false);
+*/
+
+      hero.x = 0;
+      hero.y = 0 ;
+      // Reset the game when the player catches a monster
+      var reset = function () {
+      	//hero.x = canvas.width / 2;
+      	//hero.y = canvas.height / 2;
+
+      	// Throw the monster somewhere on the screen randomly
+      	monster.x = 32 + (mr() * (canvas.width - 64));
+      	monster.y = hero.y; // 32 + (mr() * (canvas.height - 64));
+      };
+
+      // Update game objects
+
+      /*
+      var update = function (modifier) {
+
+
+        if (38 in keysDown) { // Player holding up
+      		hero.y -= hero.speed * modifier;
+      	}
+      	if (40 in keysDown) { // Player holding down
+      		hero.y += hero.speed * modifier;
+      	}
+      	if (37 in keysDown) { // Player holding left
+      		hero.x -= hero.speed * modifier;
+      	}
+      	if (39 in keysDown) { // Player holding right
+      		hero.x += hero.speed * modifier;
+      	}
+
+      	// Are they touching?
+      	if (
+      		hero.x <= (monster.x + 32)
+      		&& monster.x <= (hero.x + 32)
+      		&& hero.y <= (monster.y + 32)
+      		&& monster.y <= (hero.y + 32)
+      	) {
+      		++monstersCaught;
+      		reset();
+      	}
+      };
+      */
+
+      function linearInterpolation (x, x0, y0, x1, y1) {
+        var a = (y1 - y0) / (x1 - x0)
+        var b = -a * x0 + y0
+        return a * x + b
+      }
+      function sharpnessValue( sharpness, value){
+          if ( value <= sharpness )
+            return linearInterpolation( value, 0, 0, sharpness, 1-sharpness)
+          else {
+            return linearInterpolation( value, sharpness, 1-sharpness, 1, 1)
+          }
+      }
+
+      var newHill = function( x0, y0, w, h, color, depth, sharpness ){
+        return {
+          x : x0,
+          y : y0,
+          width: w,
+          height: h,
+          color: color,
+          peeks : function( w, h){
+            var p = [];
+            var n = w * (depth + 1 - depth) /2 * ( 0.5 + 0.5 *(1 - sharpness)) / 10;  //Math.floor( mr() * 1000*  sharpness);
+            if (n < 4) n = 4;
+            p.push( {x: 0, y: 0});
+            for(var i = 1; i < n; i++){
+              p.push( {x: w * i/n, y: h * sharpnessValue(1- sharpness, mr() ) });
+            }
+            p.push( {x: w, y: 0});
+            return p;
+          }(w,h)
+        }
+      }
+
+      var newHorizontPlane = function( depth, sharpness, color ){
+        var c = mf( 255 * this.depth );
+        var I = {};
+        I.depth = depth;
+        I.sharpness = sharpness;
+        I.x = 0;
+        I.y = HORI_Y - HORI_FAR_OFFSET * (1 - depth);
+        I.width = 2400 * depth;
+        I.height = HORI_HEIGHT * depth;
+        I.color = color || "rgba(" +c +", "+c+", "+c+", "+c +")";
+        I.hills = [];
+        I.hills.push( newHill( I.x, I.y , I.width, I.height, I.color, depth, sharpness ) );
+        I.draw = function( context, offsetx, offsety ){
+            //context.fillStyle = this.color;
+            var x = - offsetx * this.depth;
+            var y = - offsety * this.depth;
+            context.fillStyle = this.color;
+            context.translate( x, y );
+            /*
+
+            var ctx = context;
+            context.font = 24 * this.depth + "px Helvetica";
+            context.textAlign = "center";
+            context.textBaseline = "top";
+            context.fillText("plane "+this.depth+", "+context.fillStyle, this.x, this.y, 64);
+            */
+
+            this.hills.forEach( function( hill, idx ){
+              context.fillRect( hill.x, hill.y , hill.width, canvas.height*2);
+              context.beginPath();
+              hill.peeks.forEach( function(p, idx){
+                if (idx == 0)
+                  context.moveTo( hill.x+ p.x, hill.y - p.y)
+                else
+                  context.lineTo( hill.x+ p.x, hill.y - p.y);
+              } )
+              context.fill();
+            } );
+
+            rst();
+        }
+
+        return I;
+      }
+
+      var horiColor = function( depth, r, g, b, a ){
+        var nr = mf(depth*r);
+        var ng = mf(depth*g);
+        var nb = mf(depth*b);
+        var na = 1.0;
+        return "rgb("+ nr+" ,"+ng+" ,"+nb+")";
+      }
+      // horizont
+      var horizont = {
+        planes : [
+          newHorizontPlane( 0.3, 0.5, horiColor( 0.2, 220, 230, 255, 1 )), // '#90C0C0' ),
+          newHorizontPlane( 0.4, 0.45, horiColor( 0.32, 220, 230, 255, 1 )), //'#80B0B0' ),
+          newHorizontPlane( 0.5, 0.4, horiColor( 0.45, 220, 230, 255, 1 )), //'#406060' ),
+          newHorizontPlane( 0.9, 0.3, horiColor( 0.69, 220, 230, 255, 1 )), //'#151519' ),
+          newHorizontPlane( 1, 0.1, horiColor( 1, 220, 230, 255, 1 )) //'#101010'),
+        ],
+        draw : function( context, offsetx, offsety ){
+          this.planes.forEach( function(plane, idx ){
+            plane.draw( context, offsetx, offsety );
+          });
+        }
+      }
+
+      // Draw objects
+      var renderObject = function( o ) {
+          ctx.fillStyle = o.color;
+          ctx.fillRect(o.x - 16, o.y -16, 32,32);
+      }
+      // Draw everything
+      var render = function () {
+
+        ctx.fillStyle = "#101010";
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+
+        // draw horizont
+        horizont.draw( ctx, hero.x+50 +2*canvas.width/2, +hero.y-250);
+
+        rst();
+
+        ctx.translate( -hero.x +50   , -hero.y +250);
+        //if (bgReady) {
+      	//	ctx.drawImage(bgImage, 0, 0);
+      	//}
+
+      		//ctx.drawImage(heroImage, hero.x, hero.y);
+          renderObject(hero);
+
+      		//ctx.drawImage(monsterImage, monster.x, monster.y);
+          renderObject(monster);
+
+        rst();
+      	// Score
+        /*
+      	ctx.fillStyle = "rgb(250, 250, 250)";
+      	ctx.font = "24px Helvetica";
+      	ctx.textAlign = "left";
+      	ctx.textBaseline = "top";
+      	ctx.fillText("Goblins caught: " + monstersCaught, 32, 32);
+        */
+
+
+      };
+
+      // The main game loop
+      var main = function () {
+      	var now = Date.now();
+      	var delta = now - then;
+
+      	//update(delta / 1000);
+        hero.x+=5;
+
+      	render();
+
+      	then = now;
+
+      	// Request to do this again ASAP
+      	requestAnimationFrame(main);
+      };
+
+      // Cross-browser support for requestAnimationFrame
+      var w = window;
+      requestAnimationFrame = w.requestAnimationFrame;// || w.webkitRequestAnimationFrame || w.msRequestAnimationFrame || w.mozRequestAnimationFrame;
+
+      // Let's play this game!
+      var then = Date.now();
+      reset();
+      main();
+
+
+    }
+</script></head><body onload="g()"></body></html>
