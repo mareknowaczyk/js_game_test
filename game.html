@@ -8,9 +8,6 @@
       // some consts
       var CANVAS_WIDTH = 640;
       var CANVAS_HEIGHT = 480;
-      var HORI_Y = 0;
-      var HORI_HEIGHT = 100;
-      var HORI_FAR_OFFSET = -50;
       // Create the canvas
       var canvas = document.createElement("canvas");
       var ctx = canvas.getContext("2d");
@@ -22,16 +19,14 @@
       var dilation_speed = 0.3;
       var density = 0.4;
       var density2 = 0.005;
-      var density_red = 0.05;
+      var density_red = 0.2;
 
       //var grass_speed = 10;
       //var red_speed = 15;
-      var grass_speed = 10;
-      var red_speed = 15;
+      var grass_speed = 7.5;
+      var red_speed = 10;
 
-      var c3 = "#050";
-      var c4 = "#5A5";
-      var cred = "#B55"
+      var cs = [ "#050", "#5A5", "#B55", "#000", "#55A" ];
       var dir_map = [[1,0],[0,1],[-1,0],[0,-1]];
       var chop_map = [
         [[1,1],[1,0],[1,-1]],
@@ -59,38 +54,31 @@
         return b;
       }
 
-
-      function dilate(test_value, put_value, empty_value=0){
+      var test = function(x,y, tv){
+        if ((Math.abs( y ) <= b_r) && (Math.abs( x ) <= b_r ))
+          return board[y][x] == tv
+        else
+          return false;
+      }
+      function dilate(tv, put_value, empty_value=0){
         var b2 = newBoard()
         processBoard( board, function(x,y,v){
-          function test(x,y){
-            if ((Math.abs( y ) <= b_r) && (Math.abs( x ) <= b_r ))
-              return board[y][x] == test_value
-            else
-              return false;
-          }
           if (v==empty_value) {
-            if (test(x-1,y) || test(x+1,y) || test(x,y-1) || test(x,y+1)
-              //|| (test(x, y+10) )
-            ) {
-                b2[y][x] = put_value;
-            } else {
-              b2[y][x] = v;
-            }
-          } else {
-            b2[y][x] = v;
-          }
+            if (test(x-1,y,tv) || test(x+1,y,tv) || test(x,y-1,tv) || test(x,y+1,tv)
+            ) b2[y][x] = put_value;
+            else b2[y][x] = v;
+          } else b2[y][x] = v;
           return v;
         })
         return b2;
       }
 
       var prepareBoard = function(){
-        board = processBoard( board, function(x,y,v){return mr() < density?1:2} );
-        board = processBoard( board, function(x,y,v){return mr() < density_red?3:v} );
-        for (var n = 0; n< 20; n++){
-          board = dilate(2,2);
-          board = dilate(1,1);
+        board = processBoard( board, function(x,y,v){return  mr() < density_red?3:( mr() < density?1:2 ) } );
+        for (var n = 0; n< 40; n++){
+          board = dilate(3,3,3);
+          board = dilate(1,1,1);
+          board = dilate(2,2,2);
         }
       }
 
@@ -99,14 +87,13 @@
       }
 
       // Game objects
-      var hero = {
-      	speed: 250, // movement in pixels per second
-        fx: 0,  // predkosc x
-        fy: 0,  // predkosc y
-        sx: 0,  // slizg x
-        sy: 0,  // slizg y
-        dir: 0,  // 0 1 2 3
-      };
+
+      hs= 250; // movement in pixels per second
+      hfx= 0;  // przesuniecie x (float)
+      hfy= 0;  // przesuniecie y (float)
+      hx = 0;  // x
+      hy= 0;  // y
+      hd= 0;  // 0 1 2 3
 
       // Handle keyboard controls
       var keysDown = false;
@@ -128,14 +115,11 @@
 
       // Reset the game when the player crashed
       var reset = function () {
-      	//hero.x = canvas.width / 2;
-      	//hero.y = canvas.height / 2;
-
       	// Throw the monster somewhere on the screen randomly
-        hero.x = 0;
-        hero.y = 0 ;
-        hero.fx = 0;
-        hero.fy = 0 ;
+        hx = 0;
+        hy = 0 ;
+        hfx = 0;
+        hfy = 0 ;
         games_state = 0;
 
         prepareBoard();
@@ -150,7 +134,7 @@
 
         // if game has started
         if (game_state == 1) {
-          //hero.dir = 5;
+
           seconds_red+=modifier;
           seconds_2+=modifier;
           if ( seconds_red > red_speed) {
@@ -166,22 +150,24 @@
 
 
           if (keysDown) {
-            var dx,dy,d = 0;
-            d = dir_map[hero.dir];
+            var dx,dy,d,s = 0;
+            d = dir_map[hd];
             //dx = (d == 0)? -1: ((d == 2)? 1: 0);
             //dy = (d == 1)? -1: ((d == 3)? 1: 0);
             dx = d[0];
             dy = d[1];
-            hero.fx = hero.fx + dx  * modifier * hero.speed ;// + hero.sx/100*modifier*hero.speed;
-            hero.fy = hero.fy + dy  * modifier * hero.speed;//+ hero.sy/100*modifier*hero.speed;
-            hero.x = mf( hero.fx /16 ) *16;
-            hero.y = mf( hero.fy /16 ) *16;
+            s = modifier * hs;
+
+            hfx += dx  * s;// + hero.sx/100*modifier*hs;
+            hfy += dy  * s;//+ hero.sy/100*modifier*hs;
+            hx = mf( hfx /16 ) *16;
+            hy = mf( hfy /16 ) *16;
             seconds = 0;
           } else {
             seconds += modifier;
             if (seconds > dilation_speed ){
               //board = dilate();
-              hero.dir = (hero.dir+ 1)%4;
+              hd = (hd+ 1)%4;
               seconds = 0;
             }
           }
@@ -202,16 +188,16 @@
             prepareBoard();
           }
           else {
-            hero.speed+=8; if (hero.speed > 256) { hero.speed = 256;}
+            hs+=8; if (hs > 256) { hs = 256;}
             // cut the grass
             if (keysDown) {
-              var ch = chop_map[hero.dir];
+              var ch = chop_map[hd];
               ch.forEach( function(pt, idx ){
                 board = processBoard( board, function(x,y,v){
                   for(var idx=0; idx < 3; idx++){
-                    if (( ma( hero.x - (x+ pt[0])*16) <16) && (ma( hero.y - (y+pt[1])*16 ) <16)) {
+                    if (( ma( hx - (x+ pt[0])*16) <16) && (ma( hy - (y+pt[1])*16 ) <16)) {
                       if (v == 1) { return 2; };
-                      if (v == 3) { hero.speed=8; return 1; };
+                      if (v == 3) { hs=8; return 1; };
                     }
                     return v;
                   }
@@ -219,36 +205,13 @@
               })
             }
           }
-          //keysDown = false;
-
-        	// Are they touching?
-        	if (
-        		1 == 2
-        	) {
-        		game_state == 2;
-        	}
         } else {
           if (keysDown) game_state = 1;
         }
       };
 
 
-      ctx.strokeStyle = '#222';
 
-      // Draw objects
-      var renderObject = function( o ) {
-          ctx.fillStyle = keysDown ? '#FFF': '#999';
-          ctx.fillRect(o.x - 8, o.y -8, 16,16);
-          var dx,dy,d = 0;
-          d = dir_map[hero.dir];
-          //dx = (d == 0)? -1: ((d == 2)? 1: 0);
-          //dy = (d == 1)? -1: ((d == 3)? 1: 0);
-          dx = d[0];
-          dy = d[1];
-          ctx.fillStyle = '#222';
-          ctx.fillRect(o.x+dx*8-1, o.y+dy*8-1,dx*8+3, dy*8+3);
-
-      }
       // Draw everything
       var render = function () {
 
@@ -256,31 +219,10 @@
         ctx.fillRect(0,0,canvas.width,canvas.height);
 
         // background
-        //ctx.translate( hero.x, hero.y );
-        var x,y,nx,ny, dx,dy,c1,c2,c = 0;
-        dx = hero.x % 128;
-        dy = hero.y % 128;
-        c1 = "#000";
-        c2 = "#55A";
-
-        for(nx =-10; nx <= 12; nx++){
-          x = nx*64;
-          for(ny =-10; ny< 10; ny++){
-            y = ny*64;
-            ctx.fillStyle = ((nx+ny) % 2 == 0)?c1:c2;
-            ctx.fillRect(x+dx,y+dy,64,64);
-          }
-        }
-
-
-        //
-
-        rst();
-
         board = processBoard( board, function(x,y,v){
           if (v > 0){
-            ctx.fillStyle = v==1? c3: ( v==2? c4: cred );
-            ctx.fillRect(-8+x*16 - hero.x+320,-8+y*16 -hero.y+240,17,17);
+            ctx.fillStyle = v==1? cs[0]: ( v==2? cs[1]: cs[2] );
+            ctx.fillRect(-8+x*16 - hx+320,-8+y*16 -hy+240,17,17);
           }
           return v;
         })
@@ -288,29 +230,19 @@
         //hero
         rst();
 
-        ctx.translate( -hero.x +320   , -hero.y +240);
+        ctx.translate( -hx +320   , -hy +240);
 
-        renderObject(hero);
-
+        ctx.fillStyle = keysDown ? '#FFF': '#999';
+        ctx.fillRect(hx - 8, hy -8, 16,16);
+        var dx,dy,d = 0;
+        d = dir_map[hd];
+        //dx = (d == 0)? -1: ((d == 2)? 1: 0);
+        //dy = (d == 1)? -1: ((d == 3)? 1: 0);
+        dx = d[0];
+        dy = d[1];
+        ctx.fillStyle = '#222';
+        ctx.fillRect(hx+dx*8-1, hy+dy*8-1,dx*8+3, dy*8+3);
         rst();
-
-        ctx.fillStyle = "rgb(250, 250, 250)";
-        ctx.font = "24px Helvetica";
-        ctx.textAlign = "left";
-        ctx.textBaseline = "top";
-        ctx.fillText("sx,sy: "+/* + hero.x+' '+hero.y+','+*/hero.x+', '+ hero.y+','+hero.dir+','+hero.speed, 32, 32);
-
-
-        rst();
-      	// Score
-        /*
-      	ctx.fillStyle = "rgb(250, 250, 250)";
-      	ctx.font = "24px Helvetica";
-      	ctx.textAlign = "left";
-      	ctx.textBaseline = "top";
-      	ctx.fillText("Goblins caught: " + monstersCaught, 32, 32);
-        */
-
 
       };
 
