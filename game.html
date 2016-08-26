@@ -258,12 +258,13 @@
       	then = now;
 
       	// Request to do this again ASAP
-      	requestAnimationFrame(main);
+      	//requestAnimationFrame(main);
+        w.requestAnimationFrame;
       };
 
       // Cross-browser support for requestAnimationFrame
 
-      requestAnimationFrame = w.requestAnimationFrame;// || w.webkitRequestAnimationFrame || w.msRequestAnimationFrame || w.mozRequestAnimationFrame;
+      //requestAnimationFrame = w.requestAnimationFrame;// || w.webkitRequestAnimationFrame || w.msRequestAnimationFrame || w.mozRequestAnimationFrame;
 
       // Let's play this game!
       var then = Date.now();
