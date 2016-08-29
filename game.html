@@ -17,16 +17,16 @@
 
       var b_r = 10;
       var dilation_speed = 0.3;
-      var density = 0.4;
+      var density = 0.8;
       var density2 = 0.005;
-      var density_red = 0.2;
+      var density_red = 0.1;
 
       //var grass_speed = 10;
       //var red_speed = 15;
       var grass_speed = 7.5;
       var red_speed = 10;
 
-      var cs = [ "#050", "#5A5", "#B55", "#000", "#55A" ];
+      var cs = [ "#050", "#5A5", "#010", "#000", "#55A" ];
       var dir_map = [[1,0],[0,1],[-1,0],[0,-1]];
       var chop_map = [
         [[1,1],[1,0],[1,-1]],
@@ -80,6 +80,12 @@
           board = dilate(1,1,1);
           board = dilate(2,2,2);
         }
+        for(i = -b_r;i<=b_r;i++){
+          board[b_r][i] = 2;
+          board[-b_r][i] = 2;
+          board[i][b_r] = 2;
+          board[i][-b_r] = 2;
+        }
       }
 
       function rst(){
@@ -97,10 +103,30 @@
 
       // Handle keyboard controls
       var keysDown = false;
+      var keyDir = 0;
 
 
       addEventListener("keydown", function (e) {
       	//keysDown[e.keyCode] = true;
+        switch(e.which) {
+        case 37: // left
+        keyDir = 2;
+        break;
+
+        case 38: // up
+        keyDir = 3;
+        break;
+
+        case 39: // right
+        keyDir = 0;
+        break;
+
+        case 40: // down
+        keyDir = 1;
+        break;
+
+        default: return; // exit this handler for other keys
+    }
         if (!keysDown) {
           keysDown= true;
         }
@@ -129,6 +155,7 @@
       var seconds = 0;
       var seconds_red = 0;
       var seconds_2 = 0;
+      var dx,dy,d,s = 0;
 
       var update = function (modifier) {
 
@@ -148,9 +175,9 @@
             seconds_2 = 0;
           }
 
+          hd = keyDir;
 
           if (keysDown) {
-            var dx,dy,d,s = 0;
             d = dir_map[hd];
             //dx = (d == 0)? -1: ((d == 2)? 1: 0);
             //dy = (d == 1)? -1: ((d == 3)? 1: 0);
@@ -164,12 +191,12 @@
             hy = mf( hfy /16 ) *16;
             seconds = 0;
           } else {
-            seconds += modifier;
+            /*seconds += modifier;
             if (seconds > dilation_speed ){
               //board = dilate();
               hd = (hd+ 1)%4;
               seconds = 0;
-            }
+            }*/
           }
           var gameover = true;
           var nextlevel = true;
@@ -197,7 +224,7 @@
                   for(var idx=0; idx < 3; idx++){
                     if (( ma( hx - (x+ pt[0])*16) <16) && (ma( hy - (y+pt[1])*16 ) <16)) {
                       if (v == 1) { return 2; };
-                      if (v == 3) { hs=8; return 1; };
+                      if (v == 3) { hs=128; return 1; };
                     }
                     return v;
                   }
@@ -206,26 +233,69 @@
             }
           }
         } else {
-          if (keysDown) game_state = 1;
+          if  ((!gameover) && (keysDown)) game_state = 1;
         }
       };
 
+      var imgs=[];
+      ic=[5,7,3]
+      for (dx=0; dx<3;dx++){
+        imgs[dx] = ctx.createImageData(16,16);
+        for (var i=0;i<imgs[dx].data.length;i+=4)
+          {
+          rc = mf(mr()*24);
+          rc2 = mf(mr()*40);
+          rc3 = mf(mr()*40);
+          x=(i/4+8)%16-8;
+          y=(((i/4/16))+8) %16-8;
+          //y=1;
+          f = (ma(x)>=3)&&(ma(y)>=3)?0.9:1;
 
+          imgs[dx].data[i+0]= mf(f*( (ic[dx]*8+rc2))%256);
+          imgs[dx].data[i+1]= mf(f*( (ic[dx]*16+rc))%256);
+          imgs[dx].data[i+2]= mf(f*( (ic[dx]*8+rc3))%256);;
+          imgs[dx].data[i+3]=200;
+          }
+      }
+      var di = function(ix,x,y){
+        ctx.putImageData(imgs[ix],x,y);
+      }
+
+      var itank=[0,14,30,62,62,62,62,0];
+      imgs[3] = ctx.createImageData(16,16);
+      for (var i=0;i<imgs[dx].data.length;i+=4)
+      {
+        rc = mf(mr()*24);
+        rc2 = mf(mr()*40);
+        rc3 = mf(mr()*40);
+        x=8-mf(i / 4 /2 ) % 8  ;
+        y=mf(i / 4 / 16) ;
+        //y=1;
+
+
+        imgs[3].data[i+0]= 255;
+        imgs[3].data[i+1]= 0;
+        imgs[3].data[i+2]= 0;
+        imgs[3].data[i+3]= ((itank[y] > (x)) & 1)*255;
+      }
 
       // Draw everything
       var render = function () {
 
-        ctx.fillStyle = "#101010";
+        ctx.fillStyle = "#2040F0";
         ctx.fillRect(0,0,canvas.width,canvas.height);
 
         // background
         board = processBoard( board, function(x,y,v){
-          if (v > 0){
-            ctx.fillStyle = v==1? cs[0]: ( v==2? cs[1]: cs[2] );
-            ctx.fillRect(-8+x*16 - hx+320,-8+y*16 -hy+240,17,17);
+          if ((v > 0) ){
+            //ctx.fillStyle = v==1? cs[0]: ( v==2? cs[1]: cs[2] );
+            //ctx.fillRect(-8+x*16 - hx+320,-8+y*16 -hy+240,17,17);
+            di(v-1,-8+x*16 - hx+320,-8+y*16 -hy+240)
           }
           return v;
         })
+
+        di(3,0,0);
 
         //hero
         rst();
@@ -257,9 +327,9 @@
 
       	then = now;
 
+        //requestAnimationFrame(main);
       	// Request to do this again ASAP
-      	//requestAnimationFrame(main);
-        w.requestAnimationFrame;
+        w.requestAnimationFrame(main);
       };
 
       // Cross-browser support for requestAnimationFrame
