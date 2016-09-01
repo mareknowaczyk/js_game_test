@@ -21,8 +21,8 @@
       var density2 = 0.005;
       var density_red = 0.1;
 
-      //var grass_speed = 10;
-      //var red_speed = 15;
+      //var grass_speed = 1;
+      //var red_speed = 2;
       var grass_speed = 7.5;
       var red_speed = 10;
 
@@ -34,6 +34,45 @@
         [[-1,1],[-1,0],[-1,-1]],
         [[1,-1],[0,-1],[-1,-1]],
       ];
+
+      var tiles = [
+        {c:'water',pos:{x:5,y:26}, variants:[[0,0],[0,1],[1,0],[1,1]]},
+        {c:'grass2', pos:{x:1,y:5}, variants:[[0,0],[0,1],[1,0],[1,1]]},
+        {c:'grass1',pos:{x:11,y:5}, variants:[[0,0],[0,1],[1,0],[1,1]]},
+        {c:'grass3',pos:{x:25,y:5}, variants:[[0,0],[0,1],[1,0],[1,1]]},
+        {c:'bottom',pos:{x:2,y:58}, variants:[[0,0],[1,0]]},
+      ]
+
+      var tilesImg = new Image();
+      tilesImg.src = "free_16x16_tileset_by_neoz7-d8gs48c.png";
+
+      var draw_tile = function(ctx, tile, x, y){
+        //tile = tiles[tile_idx].pos;
+        t = tiles[tile.kind];
+        tb = tiles[4];
+        vx = 0;
+        vy = 0;
+        if (tile.variant >= 0) {
+          vx = t.variants[tile.variant][0];
+          vy = t.variants[tile.variant][1];
+        }
+        //offs = [0,-4,0,-8,0];
+        offs = [0,0,0,0,0];
+        ctx.drawImage(tilesImg, (t.pos.x+vx)*16, (t.pos.y+vy)*16, 16, 16, (this.x)*16-hx+320-8, (this.y)*16-hy+240-8 +offs[tile.kind] , 16, 16 );
+        ctx.drawImage(tilesImg, (tb.pos.x+vx%2)*16, (tb.pos.y+vy%2)*16, 16, 16, (this.x)*16-hx+320-8, (this.y+1)*16-hy+240-8+offs[tile.kind], 16, 16 );
+      }
+
+      var board_tile = function(nkind, nx, ny) {
+        t = tiles[nkind];
+        vc = t.variants.length;
+        return {
+          x: nx, y: ny,
+          //idx: kind,
+          kind: nkind,
+          variant: vc <=0 ? -1: mf(mr()*vc),
+          draw : draw_tile
+        }
+      }
 
       // utworzenie boarda
       var newBoard = function(){
@@ -56,16 +95,27 @@
 
       var test = function(x,y, tv){
         if ((Math.abs( y ) <= b_r) && (Math.abs( x ) <= b_r ))
-          return board[y][x] == tv
+          return board[y][x].kind == tv
         else
           return false;
       }
+      function countNeighbours(x,y,test_value){
+        var res_count=0;
+        var dx,dy =0;
+        for(dx=-1;dx<=1;dx++){
+          for(dy=-1;dy<=1;dy++){
+            if ((test(x+dx,y+dy, test_value)) && ((dx!=0) || (dy!=0)) ) res_count+=1;
+          }
+        }
+        return res_count;
+      }
+
       function dilate(tv, put_value, empty_value=0){
         var b2 = newBoard()
         processBoard( board, function(x,y,v){
-          if (v==empty_value) {
-            if (test(x-1,y,tv) || test(x+1,y,tv) || test(x,y-1,tv) || test(x,y+1,tv)
-            ) b2[y][x] = put_value;
+          if (v.kind==empty_value) {
+            //if (test(x-1,y,tv) || test(x+1,y,tv) || test(x,y-1,tv) || test(x,y+1,tv))
+            if (countNeighbours(x,y,tv) >= 3) b2[y][x] = board_tile( put_value, x,y);
             else b2[y][x] = v;
           } else b2[y][x] = v;
           return v;
@@ -74,17 +124,19 @@
       }
 
       var prepareBoard = function(){
-        board = processBoard( board, function(x,y,v){return  mr() < density_red?3:( mr() < density?1:2 ) } );
+        board = processBoard( board, function(x,y,v){
+          return board_tile( mr() < density_red?3:( mr() < density?1:2 ), x,y);
+        });
         for (var n = 0; n< 40; n++){
           board = dilate(3,3,3);
           board = dilate(1,1,1);
           board = dilate(2,2,2);
         }
         for(i = -b_r;i<=b_r;i++){
-          board[b_r][i] = 2;
-          board[-b_r][i] = 2;
-          board[i][b_r] = 2;
-          board[i][-b_r] = 2;
+          board[-b_r][i] = board_tile(2,i , -b_r);
+          board[b_r][i] = board_tile(2, i,b_r);
+          board[i][-b_r]  = board_tile(2, -b_r,i);
+          board[i][b_r]  = board_tile(2, b_r,i );
         }
       }
 
@@ -104,6 +156,12 @@
       // Handle keyboard controls
       var keysDown = false;
       var keyDir = 0;
+      var gtfull= 250;
+      var gas=gtfull;
+      var gtx, gty = 0;
+      var gtvisible = false;
+      var gtcounter_max = 7;
+      var gtcounter = gtcounter_max;
 
 
       addEventListener("keydown", function (e) {
@@ -183,13 +241,19 @@
             //dy = (d == 1)? -1: ((d == 3)? 1: 0);
             dx = d[0];
             dy = d[1];
-            s = modifier * hs;
+            s = modifier * (gas > 0? hs: hs/2);
+            //gas = s > gas ?gas = 0: gas -s;
 
             hfx += dx  * s;// + hero.sx/100*modifier*hs;
             hfy += dy  * s;//+ hero.sy/100*modifier*hs;
             hx = mf( hfx /16 ) *16;
             hy = mf( hfy /16 ) *16;
             seconds = 0;
+
+            if ((gtvisible) && (( ma( hx - (gtx+ 0)*16) <16) && (ma( hy - (gty+0)*16 ) <16))){
+              gtvisible = false;
+              gas = gtfull;
+            }
           } else {
             /*seconds += modifier;
             if (seconds > dilation_speed ){
@@ -198,11 +262,22 @@
               seconds = 0;
             }*/
           }
+
+          gtcounter -=  modifier;
+          if (gtcounter < 0) {
+            gtcounter = gtcounter_max;
+            gtx = mf(b_r * mr() *2) - b_r;
+            gty = mf(b_r * mr() *2) - b_r;
+            gtvisible = true;
+          }
+
+
+
           var gameover = true;
           var nextlevel = true;
           board = processBoard( board, function(x,y,v){
-              if (v == 2) gameover = false;
-              if (v == 1) nextlevel = false;
+              if (v.kind == 2) gameover = false;
+              if (v.kind == 1) nextlevel = false;
               return v;
           })
 
@@ -217,19 +292,20 @@
           else {
             hs+=8; if (hs > 256) { hs = 256;}
             // cut the grass
-            if (keysDown) {
+            if ((keysDown) && (gas > 0)) {
               var ch = chop_map[hd];
               ch.forEach( function(pt, idx ){
                 board = processBoard( board, function(x,y,v){
                   for(var idx=0; idx < 3; idx++){
                     if (( ma( hx - (x+ pt[0])*16) <16) && (ma( hy - (y+pt[1])*16 ) <16)) {
-                      if (v == 1) { return 2; };
-                      if (v == 3) { hs=128; return 1; };
+                      if (v.kind == 1) { gas-=1; v.kind = 2; };
+                      if (v.kind == 3) { gas-=2; hs=128; v.kind = 1; };
                     }
-                    return v;
                   }
+                  return v;
                 })
               })
+              gas = gas>0?gas:0;
             }
           }
         } else {
@@ -258,7 +334,11 @@
           }
       }
       var di = function(ix,x,y){
-        ctx.putImageData(imgs[ix],x,y);
+        if (ix >= 3) {
+          ctx.putImageData(imgs[ix],x,y);
+        } else {
+          tiles[ix].draw(ctx, ix, x, y);
+        }
       }
 
       var itank=[0,14,30,62,62,62,62,0];
@@ -268,15 +348,15 @@
         rc = mf(mr()*24);
         rc2 = mf(mr()*40);
         rc3 = mf(mr()*40);
-        x=8-mf(i / 4 /2 ) % 8  ;
-        y=mf(i / 4 / 16) ;
+        x=mf(i / 4 /2 ) % 8  ;
+        y=mf(i / 4 / 32) ;
         //y=1;
 
 
         imgs[3].data[i+0]= 255;
         imgs[3].data[i+1]= 0;
         imgs[3].data[i+2]= 0;
-        imgs[3].data[i+3]= ((itank[y] > (x)) & 1)*255;
+        imgs[3].data[i+3]= ((itank[y] >> (x)) & 1)*255;
       }
 
       // Draw everything
@@ -287,15 +367,19 @@
 
         // background
         board = processBoard( board, function(x,y,v){
-          if ((v > 0) ){
+          if ((v.kind > 0) ){
             //ctx.fillStyle = v==1? cs[0]: ( v==2? cs[1]: cs[2] );
             //ctx.fillRect(-8+x*16 - hx+320,-8+y*16 -hy+240,17,17);
-            di(v-1,-8+x*16 - hx+320,-8+y*16 -hy+240)
+            //di(v-1,-8+x*16 - hx+320,-8+y*16 -hy+240)
+            v.draw(ctx, v, -8+x*16 - hx+320,-8+y*16 -hy+240);
           }
           return v;
         })
 
-        di(3,0,0);
+        if (gtvisible) {
+          di(3,-8+gtx*16 - hx+320,-8+gty*16 -hy+240);
+        }
+        //di(3,0,0);
 
         //hero
         rst();
