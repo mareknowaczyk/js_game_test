@@ -15,7 +15,7 @@
       canvas.height = CANVAS_HEIGHT;
       document.body.appendChild(canvas);
 
-      var b_r = 10;
+      var b_r = 5;
       var dilation_speed = 0.3;
       var density = 0.8;
       var density2 = 0.005;
@@ -34,19 +34,50 @@
         [[-1,1],[-1,0],[-1,-1]],
         [[1,-1],[0,-1],[-1,-1]],
       ];
+      var new_tile = function(nname, npos, nvariants){
+        return {
+          name: nname,
+          pos: npos,
+          variants: nvariants,
+          draw: function(ctx, x,y, variant, dx=0, dy=0){
+            v = ((variant >=0) && (variant < this.variants.length))? [this.variants[variant][0],this.variants[variant][1]]:[0,0];
+            ctx.drawImage(tilesImg, (this.pos.x+v[0])*16, (this.pos.y+v[1])*16, 16, 16, (x)*16-hx+320-8+dx, (y)*16-hy+240-8+dy, 16, 16 );
+          }
+        }
+      }
 
-      var tiles = [
+      /*var tiles = [
         {c:'water',pos:{x:5,y:26}, variants:[[0,0],[0,1],[1,0],[1,1]]},
         {c:'grass2', pos:{x:1,y:5}, variants:[[0,0],[0,1],[1,0],[1,1]]},
         {c:'grass1',pos:{x:11,y:5}, variants:[[0,0],[0,1],[1,0],[1,1]]},
         {c:'grass3',pos:{x:25,y:5}, variants:[[0,0],[0,1],[1,0],[1,1]]},
         {c:'bottom',pos:{x:2,y:58}, variants:[[0,0],[1,0]]},
+      ]*/
+      var tiles = [
+        new_tile('water',{x:5+24,y:27}, [[0,0],[0,1],[1,0],[1,1]]),
+        new_tile('grass2',{x:1,y:5}, [[0,0],[0,1],[1,0],[1,1]]),
+        new_tile('grass1',{x:11,y:5}, [[0,0],[0,1],[1,0],[1,1]]),
+        new_tile('grass3',{x:25,y:5}, [[0,0],[0,1],[1,0],[1,1]]),
+        new_tile('bottom',{x:2,y:58}, [[0,0],[1,0]]),
+        // narozniki 5-8
+        new_tile('border_lt',{x:10,y:4}, [[0,0]]),
+        new_tile('border_rt',{x:10,y:4}, [[3,0]]),
+        new_tile('border_lb',{x:10,y:4}, [[0,3]]),
+        new_tile('border_rb',{x:10,y:4}, [[3,3]]),
+        // boki 9-12
+        new_tile('border_r',{x:10,y:4}, [[3,1],[3,2]]),
+        new_tile('border_b',{x:10,y:4}, [[1,3],[2,3]]),
+        new_tile('border_l',{x:10,y:4}, [[0,1],[0,2]]),
+        new_tile('border_t',{x:10,y:4}, [[1,0],[2,0]]),
+        // player
+        new_tile('player',{x:10,y:4}, [[1,0],[2,0]]),
+        new_tile('gas',{x:10,y:4}, [[1,0],[2,0]]),
       ]
 
       var tilesImg = new Image();
       tilesImg.src = "free_16x16_tileset_by_neoz7-d8gs48c.png";
 
-      var draw_tile = function(ctx, tile, x, y){
+      var draw_tile = function(ctx, x, y){
         //tile = tiles[tile_idx].pos;
         t = tiles[tile.kind];
         tb = tiles[4];
@@ -65,12 +96,16 @@
       var board_tile = function(nkind, nx, ny) {
         t = tiles[nkind];
         vc = t.variants.length;
+        nv = vc <=0 ? -1: mf(mr()*vc);
         return {
           x: nx, y: ny,
           //idx: kind,
           kind: nkind,
-          variant: vc <=0 ? -1: mf(mr()*vc),
-          draw : draw_tile
+          variant: nv,
+          draw : function(ctx){
+            tiles[this.kind].draw(ctx,this.x, this.y, this.variant);
+            //tiles[4].draw(ctx,this.x, this.y+1, this.variant % 2);
+          }
         }
       }
 
@@ -124,6 +159,7 @@
       }
 
       var prepareBoard = function(){
+        board = newBoard();
         board = processBoard( board, function(x,y,v){
           return board_tile( mr() < density_red?3:( mr() < density?1:2 ), x,y);
         });
@@ -287,6 +323,7 @@
             density_red += 0.01;
             grass_speed -= 1;
             red_speed -=1;
+            b_r += 2;
             prepareBoard();
           }
           else {
@@ -337,7 +374,7 @@
         if (ix >= 3) {
           ctx.putImageData(imgs[ix],x,y);
         } else {
-          tiles[ix].draw(ctx, ix, x, y);
+          tiles[ix].draw(ctx, x, y);
         }
       }
 
@@ -362,16 +399,49 @@
       // Draw everything
       var render = function () {
 
-        ctx.fillStyle = "#2040F0";
+        ctx.fillStyle = "#2040F000";
         ctx.fillRect(0,0,canvas.width,canvas.height);
 
+        for (y = -100; y<100; y++){
+          for (x = -100; x<100; x++){
+            tiles[0].draw(ctx, x, y, (x+y+1000)%4 );
+            if (x == -b_r -1){
+              if ( y == -b_r -1)
+                tiles[5].draw(ctx, x,y,0)
+              else if (y == b_r+1)
+                tiles[7].draw(ctx, x,y,0)
+              else if ((y>= -b_r) && (y<= b_r))
+                tiles[11].draw(ctx, x,y, (x+y+1000)%2);
+            } else {
+              if (x == b_r +1){
+                if ( y == -b_r -1)
+                  tiles[6].draw(ctx, x,y,0)
+                else if (y == b_r+1)
+                  tiles[8].draw(ctx, x,y,0)
+                else if ((y>= -b_r) && (y<= b_r))
+                  tiles[9].draw(ctx, x,y, (x+y+1000)%2);
+              }else {
+                if ((y == -b_r -1) && (x>= -b_r) && (x<= b_r)){
+                  tiles[12].draw(ctx, x,y, (x+y+1000)%2);
+                } else {
+                  if ((y == b_r +1) && (x>= -b_r) && (x<= b_r)){
+                    tiles[10].draw(ctx, x,y, (x+y+1000)%2);
+                  }
+                }
+              }
+            }
+            if ((y == b_r +2) && (x>= -b_r-1) && (x<= b_r+1))
+              tiles[4].draw(ctx, x,y, (x+y+1000)%2);
+
+          }
+        }
         // background
         board = processBoard( board, function(x,y,v){
           if ((v.kind > 0) ){
             //ctx.fillStyle = v==1? cs[0]: ( v==2? cs[1]: cs[2] );
             //ctx.fillRect(-8+x*16 - hx+320,-8+y*16 -hy+240,17,17);
             //di(v-1,-8+x*16 - hx+320,-8+y*16 -hy+240)
-            v.draw(ctx, v, -8+x*16 - hx+320,-8+y*16 -hy+240);
+            v.draw(ctx, -8+x*16 - hx+320,-8+y*16 -hy+240);
           }
           return v;
         })
