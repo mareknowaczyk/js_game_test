@@ -15,6 +15,13 @@
       canvas.height = CANVAS_HEIGHT;
       document.body.appendChild(canvas);
 
+      var tile_map = require('map.js');
+
+      function draw_tilemap(){
+        m = TileMaps['map'];
+        
+      }
+
       var b_r = 5;
       var dilation_speed = 0.3;
       var density = 0.8;
@@ -257,6 +264,9 @@
       var seconds_2 = 0;
       var dx,dy,d,s = 0;
 
+      var water_mod = [0,0,0,0];
+      var water_count = 0;
+
       var update = function (modifier) {
 
         // if game has started
@@ -273,6 +283,13 @@
             board = dilate(1,1,2);
             board = dilate(3,1,2);
             seconds_2 = 0;
+          }
+
+          water_count += modifier;
+          if (water_count > grass_speed / 7) {
+            for (j=0;j<4;j++)
+              water_mod[j] = mf(mr()*4);
+            while( water_count > 2*Math.PI) {water_count -= 2*Math.PI};
           }
 
           hd = keyDir;
@@ -402,15 +419,22 @@
         imgs[3].data[i+3]= ((itank[y] >> (x)) & 1)*255;
       }
 
+
       // Draw everything
       var render = function () {
 
         ctx.fillStyle = "#2040F000";
         ctx.fillRect(0,0,canvas.width,canvas.height);
 
+        faza = water_count*2*Math.PI/2;
+
         for (y = -20-b_r; y<20+b_r; y++){
           for (x = -30-b_r; x<30+b_r; x++){
-            tiles[0].draw(ctx, x, y, (x+y+1000)%4 );
+            tiles[0].draw(ctx, x, y, mf(
+                (1+Math.cos((x+1000)/1.73+faza)+// * Math.sin(faza))+
+                 1+Math.cos((y+1000)/1.73+faza)// * Math.sin(faza))
+               )/1.245//+(x+y)/2+1000
+            ) %4);
             if (x == -b_r -1){
               if ( y == -b_r -1)
                 tiles[5].draw(ctx, x,y,0)
